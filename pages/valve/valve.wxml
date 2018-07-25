@@ -1,0 +1,14 @@
+<!--pages/valve/valve.wxml-->
+<loading hidden="{{loadingHidden}}">正在加载...</loading>
+<button bindtap="searchBluetooth">搜索蓝牙</button>
+
+<text> 蓝牙列表: </text>
+<block wx:for-items="{{list}}" wx:key="list">
+  <view class="divLine"></view>
+  <view class="centerContent" hover-start-time='10' data-id="{{index}}" data-deviceId = "{{item.deviceId}}" bindtap='bluetoothConnect' style="background-color:{{bluetoothListBKColor}}"> {{item.name}}: {{item.deviceId}} </view>
+  <view class="divLine"></view>
+</block>
+
+<button bindtap="getValveID">获取阀门ID</button>
+<view class="divLine"></view>
+<view class="divLine">阀门编号:{{valveId}}</view>

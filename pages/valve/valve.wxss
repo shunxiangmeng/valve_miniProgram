@@ -1,0 +1,17 @@
+/* pages/valve/valve.wxss */
+/*中间文字样式*/
+.centerContent{
+  font-size: 24rpx;
+  height: 60rpx;
+}
+
+/*分割线样式*/
+.divLine{
+  background: #f3f3f3;
+  width: 100%;
+  height: 5rpx;
+}
+
+.bc_green {background: green; width:100%;}
+.bc_red {background: red; width:100%;}
+.bc_blue {background: blue; width:100%;}
