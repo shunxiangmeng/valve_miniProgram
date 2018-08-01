@@ -15,6 +15,8 @@ Page({
     loadingHidden: true,
 
     valveId: "",
+
+    status: "",
   
   },
 
@@ -104,6 +106,7 @@ Page({
   
   },
 
+//==========================================================================================
   getBluetoothList: function () {
     var that = this;
     wx.getBluetoothDevices({
@@ -130,6 +133,7 @@ Page({
       success(res)
       {
         wx.onBluetoothDeviceFound(res => {
+
           for (let i = 0; i < that.data.list.length; i++)
           {
             if (that.data.list[i].deviceId == res.devices[0].deviceId)
@@ -138,7 +142,7 @@ Page({
               return;
             }
           }
-          if (res.devices[0].name == "")
+          if (res.devices[0].name == "" || res.devices[0].name[0] != 'B')
           {
             res.devices[0].name = "未知设备";
             return;
@@ -196,7 +200,7 @@ Page({
 
   },
 
-
+//解析收到的数据
   paserReceiveData: function(buffer)
   {
     var dataView = new DataView(buffer);
@@ -212,10 +216,11 @@ Page({
     }
 
     obj.dataHex = [];
+    obj.ret = dataView.getUint8(3);;
     var temp = "";
     for (var i = 0; i < obj.len; i++)
     {
-      obj.dataHex[i] = dataView.getUint8(3+i);
+      obj.dataHex[i] = dataView.getUint8(3+i+1);
       temp += String.fromCharCode(obj.dataHex[i]);
     }
 
@@ -261,7 +266,56 @@ onBluetoothReceiveData: function(obj)
       case 0x1A: 
         console.log("0x1A ID:", rx.dataStr);
         that.setData({valveId: rx.dataStr,})
+        wx.showToast({
+          title: '获取阀门ID成功',
+          icon: 'succes',
+          duration: 1000,
+          mask: true
+        })
       break;
+
+      case 0x3A:
+        console.log("0x3A ID:", rx.dataStr);
+        if (rx.dataHex[0] == 0x00)
+        {
+          wx.showToast({
+            title: '写入有效日期成功',
+            icon: 'succes',
+            duration: 1000,
+            mask: true
+          })
+        }
+        break;
+
+      case 0x4A:  //重置密码
+        wx.showToast({
+          title: '修改密码再操作',
+          icon: 'loading',
+          duration: 1000,
+          mask: true
+        })
+        break;
+
+      case 0x5A:
+        if (rx.ret == 0x00)
+        {
+          wx.showToast({
+            title: '修改密码成功',
+            icon: 'succes',
+            duration: 1000,
+            mask: true
+          })
+        }
+        else if (rx.ret == 0x01)
+        {
+          wx.showToast({
+            title: '原始密码错误',
+            icon: 'loading',
+            duration: 1000,
+            mask: true
+          })
+        }
+        break;
 
       default:
         console.log("default:", rx.cmd);
@@ -357,24 +411,82 @@ onBluetoothReceiveData: function(obj)
 
   },
 
-  getValveID: function(e)
+//=================================================================
+getCheckSum: function(buf, len)
+{
+  var chksum = 0;
+  for (var i = 0; i < len; i++)
   {
-    var that = this;
-    var buffer = new ArrayBuffer(16);
+    chksum += buf[i];
+  }
+  return chksum;
+},
+
+//=================================================================
+  makeTxData: function(cmd, data1, data2, data3, len)
+  {
+    var bufLen = len+5;
+    var buffer = new ArrayBuffer(bufLen);
     var dataView = new DataView(buffer);
+    var count = 0;
+    var data1Len = 0;
+    var data2Len = 0;
+    var data3Len = 0;
+    var chksum = 0;
+
+    if (data1 != null)
+    {
+      data1Len = data1.length;
+    }
+    if (data2 != null) 
+    {
+      data2Len = data2.length;
+    }
+    if (data3 != null) 
+    {
+      data3Len = data3.length;
+    }
 
     dataView.setUint8(0, 0x40);
-    dataView.setUint8(1, 0x1A);  //cmd
-    dataView.setUint8(2, 0x06);  //len
-    dataView.setUint8(3, 0x38);   //password 823492
-    dataView.setUint8(4, 0x32);
-    dataView.setUint8(5, 0x33);
-    dataView.setUint8(6, 0x34);
-    dataView.setUint8(7, 0x39);
-    dataView.setUint8(8, 0x32);
-    dataView.setUint8(9, 0x9C);  //checksum
-    dataView.setUint8(10,0x23);
+    dataView.setUint8(1, cmd);  //cmd
+    dataView.setUint8(2, len);  //len
+    chksum += Number(0x40);
+    chksum += Number(cmd);
+    chksum += Number(len);
 
+    count = 3;
+    for (var i = 0; i < data1Len; i++)
+    {
+      dataView.setUint8(count, data1.charCodeAt(i));
+      chksum += data1.charCodeAt(i);
+      count += 1;
+    }
+
+    for (var i = 0; i < data2Len; i++) 
+    {
+      dataView.setUint8(count, data2.charCodeAt(i));
+      chksum += data2.charCodeAt(i);
+      count += 1;
+    }
+
+    for (var i = 0; i < data3Len; i++) {
+      dataView.setUint8(count, data3.charCodeAt(i));
+      console.log(data3.charCodeAt(i));
+      chksum += data3.charCodeAt(i);
+      count += 1;
+    }
+
+    dataView.setUint8(count, chksum);  //checksum
+    count += 1;
+    dataView.setUint8(count, 0x23);
+    return buffer;
+  },
+
+
+  sendBleCmd: function(cmd, data1, data2, data3, len)
+  {
+    var that = this;
+    var buffer = this.makeTxData(cmd, data1, data2, data3, len);
 
     wx.writeBLECharacteristicValue({
       deviceId: that.data.connectBlueId,
@@ -384,13 +496,11 @@ onBluetoothReceiveData: function(obj)
       characteristicId: that.data.characteristicId,
       // 这里的value是ArrayBuffer类型
       value: buffer,
-      success: function (res) 
-      {
+      success: function (res) {
         //console.log('writeBLECharacteristicValue success', res.errMsg)
       },
 
-      complete: function(res)
-      {
+      complete: function (res) {
         wx.readBLECharacteristicValue({
           // 这里的 deviceId 需要已经通过 createBLEConnection 与对应设备建立链接  [**new**]
           deviceId: that.data.connectBlueId,
@@ -403,10 +513,32 @@ onBluetoothReceiveData: function(obj)
           }
         })
       }
-
-
     })
-
   },
+//=========================================================================================
+//获取阀门ID
+  getValveID: function(e)
+  {
+    this.sendBleCmd(0x1A, "823492", null, null, 6);
+    wx.showToast({
+      title: '获取阀门ID',
+      icon: 'loading',
+      duration: 10000,
+      mask: true
+    })
+  },
+
+//写有效日期
+  writeValveDate: function(e)
+  {
+    this.sendBleCmd(0x3A, "202206", "823492", this.data.valveId, 18);
+  },
+
+  //修改密码
+  setPassword: function () 
+  {
+    this.sendBleCmd(0x5A, "000000", "777777", null, 12);
+  },
+
 
 })

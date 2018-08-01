@@ -10,5 +10,8 @@
 </block>
 
 <button bindtap="getValveID">获取阀门ID</button>
-<view class="divLine"></view>
-<view class="divLine">阀门编号:{{valveId}}</view>
+<button bindtap="writeValveDate">写有效使用日期202206</button>
+<view >阀门编号:{{valveId}}</view>
+<button bindtap="setPassword">修改密码 000000->777777</button>
+<view >状态:{{status}}</view>
+

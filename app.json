@@ -2,13 +2,14 @@
   "pages": [
     "pages/valve/valve",
     "pages/index/index",
-    "pages/logs/logs"
+    "pages/logs/logs",
+    "pages/password/pass"
   ],
   "window": {
     "backgroundTextStyle": "light",
     "navigationBarBackgroundColor": "#fff",
     "navigationBarTitleText": "WeChat",
-    "navigationBarTextStyle": "black" ,
+    "navigationBarTextStyle": "black",
     "enablePullDownRefresh": true
   }
 }
